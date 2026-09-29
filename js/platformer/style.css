@@ -1,0 +1,79 @@
+body {
+	margin: 0;
+	padding: 0;
+	background-color: hsl(210, 80%, 5%);
+	display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+#logo {
+	position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 2;
+	opacity: 0.5;
+	transition: opacity 0.2s ease-in-out;
+
+	&:hover {
+    opacity: 1;
+  }
+}
+
+.container {
+	display: flex;
+	border: 2px solid hsl(160, 100%, 50%, 0.5);
+	border-radius: .5rem;
+	overflow: hidden;
+	position: relative;
+}
+
+.game-over {
+	&.hidden {
+    display: none;
+  }
+
+	position: absolute;
+	inset: 0;
+	background-color: hsla(210, 50%, 20%, 0.75);
+  display: flex;
+	flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+	h1 {
+		text-transform: uppercase;
+		font-family: "Gasoek One", sans-serif;
+		font-weight: 400;
+		line-height: 0;
+    color: hsl(0, 60%, 65%);
+		font-size: clamp(3rem, 5vw, 4rem);
+	}
+	
+	p {
+		font-family: monospace;
+    font-weight: 400;
+    line-height: 0;
+    color: hsl(210, 10%, 70%);
+		
+		b {
+      color: hsl(0, 0%, 100%);
+		}
+
+		animation: blink 2s ease infinite;
+	}
+
+}
+
+@keyframes blink {
+	0% {
+		opacity: 0;
+	}
+	25%, 75% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}

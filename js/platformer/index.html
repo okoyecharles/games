@@ -4,8 +4,23 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Simple Platformer</title>
+  <link rel="stylesheet" href="style.css">
+	<link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Gasoek+One&display=swap" rel="stylesheet">
 </head>
 <body>
-	Hello World
+	<a id="logo" href="https://okoyecharles.com" rel="noopener noreferrer" target="_blank" title="Portfolio">
+		<img src="assets/portolio-logo.svg" alt="Portfolio Logo">
+	</a>
+	<div class="container">
+		<canvas id="game"></canvas>
+		<div id="game-over" class="game-over hidden">
+			<h1>Game Over</h1>
+			<p>Press <b>Enter</b> to restart</p>
+		</div>
+	</div>
+	<script src="src/main.js" type="module"></script>
 </body>
 </html>
