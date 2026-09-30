@@ -4,6 +4,9 @@ import Spike from "./spike.js";
 class SpikePlatform extends Entity {
   constructor(camera, x, y, width, height) {
     super(camera, x, y, width, height);
+		this.xSpeed = 70;
+		this.xAcc = 5;
+		this.maxXSpeed = 280;
   }
 
 	// reduce spike hitbox

@@ -7,9 +7,11 @@ import Text from "./entities/text.js";
 import lerp from "./utils/lerp.js";
 
 class Game {
-  // Time & Delta (seconds elapsed since start & between frames)
-  #initt = 0;
+  // Time
+  #frameRate = 60;
+  #tStart = 0;
   #t = 0;
+  #tAcc = 0;
   #delta = 0;
   #frameID = null;
 
@@ -24,29 +26,23 @@ class Game {
   #spikesGenX = 0;
 
   // forces
-  #gravity = 9.8;
-  #friction = 5;
-
-  // platform speed
-  #platformSpeed = 70;
+  #gravity = 1080;
+  #friction = 310;
 
   // game state
   #end = false;
   #score = 0;
   #highScore = 0;
 
-  constructor(canvas, input, gameOverScreen) {
-		let width = window.innerWidth - 48;
+  constructor(canvas, input) {
+    let width = window.innerWidth - 48;
     let height = window.innerHeight - 48;
-		width = Math.max(Math.min(width, 1000), 560);
-		height = Math.max(Math.min(height, 600), 400);
+    width = Math.max(Math.min(width, 1000), 560);
+    height = Math.max(Math.min(height, 600), 350);
     this.canvas = canvas;
     this.canvas.width = width;
     this.canvas.height = height;
     this.camera = new Camera(0, 0, canvas.width, canvas.height);
-
-    // Game Over Screen
-    this.gameOverScreen = gameOverScreen;
 
     // Entities
     this.#floorProperties.y =
@@ -84,10 +80,10 @@ class Game {
 
     // Input State
     this.input = input;
+		this.onGameOver = () => {};
   }
 
   start() {
-    this.gameOverScreen.classList.add("hidden");
     this.#highScore = Number(localStorage.getItem("highscore")) || 0;
     const cameraGoal = this.#getCameraGoal();
     this.camera.x = cameraGoal.x;
@@ -100,83 +96,88 @@ class Game {
   isGameOver() {
     return this.#end;
   }
-
+	
   // begin game loop
   #loop() {
     const isInitialFrame = this.#frameID === null;
     this.#frameID = requestAnimationFrame((t) => {
-      if (isInitialFrame) this.#initt = t / 1000;
-      t = t / 1000 - this.#initt;
+      if (isInitialFrame) this.#tStart = t / 1000;
+      t = t / 1000 - this.#tStart;
       this.#delta = t - this.#t;
+      this.#tAcc += this.#delta;
       this.#t = t;
 
-      this.#update();
-      this.#draw();
-      this.#loop();
+      const frameT = 1 / this.#frameRate;
+      while (this.#tAcc > frameT) {
+        this.#update(frameT);
+        this.#tAcc -= frameT;
+      }
+
+			this.#draw();
+			this.#loop();
       if (this.#end) cancelAnimationFrame(this.#frameID);
     });
   }
 
-  #update() {
-    // score
-    this.#score = Math.floor(this.#t);
+  #update(dt) {
+    // SCORE
+    this.#score += dt; 
 
-    // physics
-    this.player.vy += this.#delta * this.#gravity;
-    const dir = this.player.vx > 0 ? 1 : -1;
-    this.player.vx -= this.#delta * this.#friction * dir;
-
-    // player movement
+    // controls
     if (this.input.dirs.left) {
-      this.player.vx -= this.#delta * this.player.accx;
-    } else if (this.input.dirs.right) {
-      this.player.vx += this.#delta * this.player.accx;
+      this.player.xSpeed -= dt * this.player.xAcc;
+    }
+    if (this.input.dirs.right) {
+      this.player.xSpeed += dt * this.player.xAcc;
     }
     if (this.input.dirs.jump) {
       if (this.player.y + this.player.height === this.#floorProperties.y) {
-        this.player.vy = -3.5;
+        this.player.ySpeed = -this.player.jumpSpeed;
       }
     }
-    this.player.vx = Math.min(
-      Math.max(this.player.vx, -this.player.maxvx),
-      this.player.maxvx,
-    );
-
-    // update player
-    this.player.y += this.player.vy;
-    this.player.x += this.player.vx;
-
-    this.#generateFloors();
-    if (this.floors.some((f) => this.player.collides(f))) {
-      this.player.y = this.#floorProperties.y - this.player.height;
-      this.player.vy = 0;
-    }
-
-    // Interpolate to camera goal position
-    const cameraGoal = this.#getCameraGoal();
-    this.camera.x = lerp(this.camera.x, cameraGoal.x, 7 * this.#delta);
-    this.camera.y = lerp(this.camera.y, cameraGoal.y, 7 * this.#delta);
 
     // Spike Platform
-    this.spikePlatform.x += Math.min(
-      (this.#platformSpeed + this.#t * 3) * this.#delta,
-      2.8,
-    );
+		this.spikePlatform.xSpeed += this.spikePlatform.xAcc * dt;
+		this.spikePlatform.xSpeed = Math.min(
+      Math.max(this.spikePlatform.xSpeed, -this.spikePlatform.maxXSpeed),
+      this.spikePlatform.maxXSpeed
+		)
+    this.spikePlatform.x += this.spikePlatform.xSpeed * dt;
 
     // Game Over Rules
-    this.#generateSpikes();
-    if (this.spikes.some((s) => this.player.collides(s))) {
+    if (this.spikes.some((s) => this.player.collides(s))) this.#gameOver();
+    if (this.player.y > this.#floorProperties.y + this.#floorProperties.height)
       this.#gameOver();
-    }
+    if (this.spikePlatform.collides(this.player)) this.#gameOver();
+
+    // update player
+    this.player.xSpeed = Math.min(
+      Math.max(this.player.xSpeed, -this.player.maxXSpeed),
+      this.player.maxXSpeed,
+    );
     if (
-      this.player.y >
-      this.#floorProperties.y + this.#floorProperties.height
+      this.floors.some((f) => this.player.collides(f)) &&
+      this.player.ySpeed > 0
     ) {
-      this.#gameOver();
+      this.player.y = this.#floorProperties.y - this.player.height;
+      this.player.ySpeed = 0;
     }
-    if (this.spikePlatform.collides(this.player)) {
-      this.#gameOver();
-    }
+    this.player.y += this.player.ySpeed * dt;
+    this.player.x += this.player.xSpeed * dt;
+
+    // Interpolate to camera goal
+    const cameraGoal = this.#getCameraGoal();
+    this.camera.x = lerp(this.camera.x, cameraGoal.x, 7 * dt);
+    this.camera.y = lerp(this.camera.y, cameraGoal.y, 7 * dt);
+
+    // physics
+    this.player.ySpeed += dt * this.#gravity;
+    const dir = this.player.xSpeed > 0 ? 1 : -1;
+    this.player.xSpeed -= dt * this.#friction * dir;
+
+    // procedural generation
+    this.#generateSpikes();
+    this.#generateFloors();
   }
 
   #draw() {
@@ -196,8 +197,8 @@ class Game {
     ctx.fillStyle = "white";
     ctx.font = "14px monospace";
     ctx.textAlign = "right";
-    ctx.fillText(`Score: ${this.#score}`, this.canvas.width - 10, 20);
-    ctx.fillText(`High Score: ${this.#highScore}`, this.canvas.width - 10, 40);
+    ctx.fillText(`Score: ${Math.floor(this.#score)}`, this.canvas.width - 10, 20);
+    ctx.fillText(`High Score: ${Math.floor(this.#highScore)}`, this.canvas.width - 10, 40);
   }
 
   #getCameraGoal() {
@@ -259,7 +260,7 @@ class Game {
     const maxX = this.player.x + this.camera.width + this.#gracePeriodWidth;
     while (this.#spikesGenX < maxX) {
       const x = this.#spikesGenX;
-      const spikeClusterCount = Math.floor(Math.random() * 6) + 1;
+      const spikeClusterCount = Math.floor(Math.random() * 5) + 1;
       for (let i = 0; i < spikeClusterCount; i++) {
         const spike = new Spike(
           this.camera,
@@ -278,9 +279,9 @@ class Game {
   }
 
   #gameOver() {
-    this.gameOverScreen.classList.remove("hidden");
     localStorage.setItem("highscore", Math.max(this.#score, this.#highScore));
     this.#end = true;
+		this.onGameOver();
   }
 }
 
